@@ -24,7 +24,7 @@ RUN sed -i 's/\r$//g' /usr/src/app/entrypoint.sh
 RUN chmod +x /usr/src/app/entrypoint.sh
 
 #copy project from the current directory into the container at /app
-COPY .. /app
+COPY . /app
 
 #Specify the entrypoint script
 ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
