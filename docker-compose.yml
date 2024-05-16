@@ -1,9 +1,9 @@
 services:
   web:
-    build: .     #read Dockerfile in this directory
+    build: ./app     #read Dockerfile in this directory
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - ./:/usr/src/WebProject/
+      - ./app:/usr/src/app/
     ports:
       - 8000:8000
     env_file:
