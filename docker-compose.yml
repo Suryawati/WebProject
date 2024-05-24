@@ -11,12 +11,12 @@ services:
     depends_on:
       - db
   db:
-    image: postgres:latest
+    image: kartoza/postgis
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - ./pg/postgres_data:/var/lib/postgresql/:delegated
     environment:
-      - POSTGRES_USER=hello_django
-      - POSTGRES_PASSWORD=hello_django
-      - POSTGRES_DB=hello_django_dev
+      - POSTGRES_USER=django_webgis
+      - POSTGRES_PASSWORD=django_webgis
+      - POSTGRES_DB=django_webgis_dev
 volumes:
   postgres_data:

@@ -1,24 +1,35 @@
-#pull official base image
+###########
+# BUILDER #
+###########
 
-#Use an official Python runtime as a parent image
-FROM python:3.12.3-slim as builder
+# pull official base image
+FROM python:3.11.4-slim-buster as builder
 
-#set the working directory inside the container
+# set work directory
 WORKDIR /usr/src/app
 
-#set environment variables
+# set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONBUFFERED 1
+ENV PYTHONUNBUFFERED 1
 
-#install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends gcc
+# install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-#install dependenscies
-RUN pip install --upgrade pip
-COPY . /usr/src/app/
+# upgrade pip and install flake8
+RUN pip install --upgrade pip && \
+    pip install flake8==6.0.0
 
+# copy the application files
+COPY . .
 
-COPY requirements.txt .
+# lint the code and print potential errors
+RUN flake8 --ignore=E501,F401 . || true
+
+# install python dependencies and create wheels
+COPY ./requirements.txt .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
 
 #########
@@ -26,40 +37,48 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requir
 #########
 
 # pull official base image
-FROM python:3.12.3-slim
+FROM python:3.11.4-slim-buster
 
 # create directory for the app user
-RUN mkdir -p /home/app
+RUN mkdir -p /home/app/web
 
-# create the app user
-RUN addgroup --system app && adduser --system --group app
+# create the app user and group
+RUN groupadd -r app && useradd -r -g app -d /home/app -s /sbin/nologin -c "Docker image user" app
 
-# create the appropriate directories
+# set environment variables
 ENV HOME=/home/app
 ENV APP_HOME=/home/app/web
-RUN mkdir $APP_HOME
+
+# set working directory
 WORKDIR $APP_HOME
 
-# install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends netcat-traditional
+# install system dependencies and clean up
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends netcat && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# copy the wheels and requirements
 COPY --from=builder /usr/src/app/wheels /wheels
 COPY --from=builder /usr/src/app/requirements.txt .
-RUN pip install --upgrade pip
-RUN pip install --no-cache /wheels/*
 
-# copy entrypoint.prod.sh
+# install python dependencies
+RUN pip install --upgrade pip && \
+    pip install --no-cache /wheels/*
+
+# copy entrypoint and make it executable
 COPY ./entrypoint.prod.sh .
-RUN sed -i 's/\r$//g'  $APP_HOME/entrypoint.prod.sh
-RUN chmod +x  $APP_HOME/entrypoint.prod.sh
+RUN sed -i 's/\r$//g' entrypoint.prod.sh && \
+    chmod +x entrypoint.prod.sh
 
-# copy project
-COPY . $APP_HOME
+# copy the application files
+COPY . .
 
-# chown all the files to the app user
+# set permissions
 RUN chown -R app:app $APP_HOME
 
 # change to the app user
 USER app
 
-# run entrypoint.prod.sh
-ENTRYPOINT ["/home/app/web/entrypoint.prod.sh"]
+# run entrypoint
+ENTRYPOINT ["./entrypoint.prod.sh"]
